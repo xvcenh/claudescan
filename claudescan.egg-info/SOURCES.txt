@@ -1,0 +1,17 @@
+LICENSE
+README.md
+pyproject.toml
+claudescan/__init__.py
+claudescan/__main__.py
+claudescan/cli.py
+claudescan/detectors.py
+claudescan/generators.py
+claudescan/scanner.py
+claudescan.egg-info/PKG-INFO
+claudescan.egg-info/SOURCES.txt
+claudescan.egg-info/dependency_links.txt
+claudescan.egg-info/entry_points.txt
+claudescan.egg-info/requires.txt
+claudescan.egg-info/top_level.txt
+tests/test_detectors.py
+tests/test_generators.py

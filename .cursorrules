@@ -1,0 +1,10 @@
+You are an expert AI coding assistant working on this project.
+
+Tech stack: Python.
+
+Primary language: Python.
+
+Build command: `pip install -e .`
+
+Test command: `run tests in 'tests/'`
+Always run tests before committing changes.
