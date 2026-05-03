@@ -280,27 +280,83 @@ def _build_conventions(data: dict[str, Any]) -> str:
 
 
 def _build_structure(data: dict[str, Any]) -> str:
-    """Build project structure section."""
+    """Build project structure section from actual directory scan."""
     lines = ["## Project Structure", ""]
-    lines.append("```")
-    lines.append(f"{data.get('project_name', 'project')}/")
-    lines.append("├── src/           # Source code")
-    lines.append("├── tests/         # Test files")
-    lines.append("├── docs/          # Documentation")
-    lines.append("├── scripts/       # Utility scripts")
 
-    frameworks = data.get("frameworks", [])
-    for fw in frameworks:
-        if fw.get("config_file"):
-            lines.append(f"├── {fw['config_file']}    # Project configuration")
+    root_path = data.get("root_path", "")
+    if root_path:
+        tree = _generate_directory_tree(root_path, max_depth=3, max_items=20)
+        if tree:
+            lines.append("```")
+            lines.append(f"{data.get('project_name', 'project')}/")
+            lines.append(tree)
+            lines.append("```")
+        else:
+            lines.append("```")
+            lines.append(f"{data.get('project_name', 'project')}/")
+            lines.append("└── (empty or unreadable)")
+            lines.append("```")
+    else:
+        lines.append("_No project path available._")
 
-    lines.append("└── README.md")
-    lines.append("```")
     lines.append("")
-    lines.append("_Run `claudescan --structure` to see the actual directory tree._")
-    lines.append("")
+    return "\n".join(lines)
+
+
+def _generate_directory_tree(root_path: str, max_depth: int = 3, max_items: int = 20) -> str:
+    """Scan the actual project directory and return a tree representation."""
+    from pathlib import Path
+
+    IGNORE = {".git", "node_modules", "__pycache__", ".venv", "venv", "env",
+              "target", "build", "dist", ".next", ".nuxt", ".cache", ".turbo",
+              "coverage", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+              ".tox", ".eggs", "*.egg-info"}
+
+    root = Path(root_path)
+    if not root.is_dir():
+        return ""
+
+    lines = []
+    _walk_tree(root, root, "", max_depth, 0, max_items, IGNORE, lines)
 
     return "\n".join(lines)
+
+
+def _walk_tree(root: "Path", current: "Path", prefix: str, max_depth: int,
+               depth: int, max_items: int, ignore_dirs: set, lines: list):
+    """Recursive helper for directory tree generation."""
+    if depth >= max_depth or len(lines) >= max_items:
+        if len(lines) >= max_items:
+            lines.append(f"{prefix}...")
+        return
+
+    try:
+        entries = sorted(
+            [e for e in current.iterdir() if e.name not in ignore_dirs and not e.name.startswith(".")],
+            key=lambda e: (e.is_file(), e.name)
+        )
+    except PermissionError:
+        return
+
+    dirs = [e for e in entries if e.is_dir()]
+    files = [e for e in entries if e.is_file()]
+
+    all_entries = dirs + files
+    for i, entry in enumerate(all_entries):
+        if len(lines) >= max_items:
+            lines.append(f"{prefix}...")
+            return
+
+        is_last = i == len(all_entries) - 1
+        connector = "└── " if is_last else "├── "
+        name = entry.name
+
+        if entry.is_dir():
+            lines.append(f"{prefix}{connector}{name}/")
+            _walk_tree(root, entry, prefix + ("    " if is_last else "│   "),
+                       max_depth, depth + 1, max_items, ignore_dirs, lines)
+        else:
+            lines.append(f"{prefix}{connector}{name}")
 
 
 def _build_git_workflow(data: dict[str, Any]) -> str:
