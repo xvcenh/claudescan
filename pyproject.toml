@@ -28,7 +28,6 @@ dev = [
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 
-[project.classifiers]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
