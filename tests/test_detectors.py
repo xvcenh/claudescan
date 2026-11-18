@@ -192,3 +192,30 @@ def test_generated_packages_are_pruned(tmp_path: Path) -> None:
 def test_node_project_without_lockfile(tmp_path: Path) -> None:
     (tmp_path / "package.json").write_text("{}", encoding="utf-8")
     assert detect_build_system(str(tmp_path))[0]["name"] == "npm"
+
+
+def test_declared_package_manager_and_real_scripts(tmp_path: Path) -> None:
+    package = {"packageManager": "pnpm@10.4.0", "scripts": {"build": "vite build", "test": "vitest run"}}
+    (tmp_path / "package.json").write_text(json.dumps(package), encoding="utf-8")
+    (tmp_path / "package-lock.json").touch()
+    (tmp_path / "vitest.config.ts").touch()
+    assert detect_build_system(str(tmp_path)) == [{"name": "pnpm", "command": "pnpm run build", "lock": None}]
+    assert detect_test_framework(str(tmp_path))[0]["command"] == "pnpm run test"
+
+
+def test_lockfile_without_build_script_yields_install(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text('{"devDependencies": null}', encoding="utf-8")
+    (tmp_path / "bun.lock").touch()
+    assert detect_framework(str(tmp_path))[0]["name"] == "Node.js"
+    assert detect_build_system(str(tmp_path))[0]["command"] == "bun install"
+
+
+def test_uv_environment_detection(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").touch()
+    (tmp_path / "uv.lock").touch()
+    assert detect_build_system(str(tmp_path)) == [{"name": "uv", "command": "uv sync", "lock": "uv.lock"}]
+
+
+def test_invalid_package_shape_falls_back_to_directory(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text('["name"]', encoding="utf-8")
+    assert get_project_name(str(tmp_path)) == tmp_path.name

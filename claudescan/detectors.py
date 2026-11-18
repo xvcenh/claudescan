@@ -177,6 +177,35 @@ def detect_languages(root_path: str) -> list[dict]:
     ]
 
 
+def _package_data(root: Path) -> dict:
+    try:
+        value = json.loads((root / "package.json").read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _node_manager(root: Path, package: dict) -> tuple[str, str | None]:
+    locks = {
+        "npm": ("npm-shrinkwrap.json", "package-lock.json"),
+        "yarn": ("yarn.lock",),
+        "pnpm": ("pnpm-lock.yaml",),
+        "bun": ("bun.lock", "bun.lockb"),
+    }
+    configured = package.get("packageManager")
+    preferred = configured.split("@", 1)[0] if isinstance(configured, str) else None
+    for manager in ([preferred] if preferred in locks else locks):
+        for filename in locks[manager]:
+            if (root / filename).is_file():
+                return manager, filename
+    return (preferred if preferred in locks else "npm"), None
+
+
+def _has_script(package: dict, name: str) -> bool:
+    scripts = package.get("scripts")
+    return isinstance(scripts, dict) and isinstance(scripts.get(name), str) and bool(scripts[name].strip())
+
+
 def detect_framework(root_path: str) -> list[dict]:
     """Detect frameworks used in the project."""
     root = Path(root_path)
@@ -187,21 +216,17 @@ def detect_framework(root_path: str) -> list[dict]:
         if config_path.exists():
             fw = {"name": info["name"], "ecosystem": info["ecosystem"], "config_file": config_file}
 
-            # Check for specific framework indicators inside config
             if config_file in FRAMEWORK_INDICATORS:
-                try:
-                    content = config_path.read_text(encoding="utf-8-sig")
-                    data = json.loads(content) if config_file.endswith(".json") else {}
-                    deps = {}
-                    if isinstance(data, dict):
-                        deps = data.get("dependencies", {})
-                        deps.update(data.get("devDependencies", {}))
-                    for key, fw_name in FRAMEWORK_INDICATORS[config_file].items():
-                        if key in deps:
-                            fw["specific"] = fw_name
-                            break
-                except (json.JSONDecodeError, UnicodeDecodeError):
-                    pass
+                package = _package_data(root)
+                deps = set()
+                for field in ("dependencies", "devDependencies", "peerDependencies"):
+                    group = package.get(field)
+                    if isinstance(group, dict):
+                        deps.update(group)
+                for key, fw_name in FRAMEWORK_INDICATORS[config_file].items():
+                    if key in deps:
+                        fw["specific"] = fw_name
+                        break
 
             frameworks.append(fw)
 
@@ -223,20 +248,19 @@ def detect_framework(root_path: str) -> list[dict]:
 def detect_build_system(root_path: str) -> list[dict]:
     """Detect build systems and package managers."""
     root = Path(root_path)
-    systems = []
+    if (root / "package.json").is_file():
+        package = _package_data(root)
+        manager, lock = _node_manager(root, package)
+        task = "run build" if _has_script(package, "build") else "install"
+        name = {"yarn": "Yarn", "bun": "Bun"}.get(manager, manager)
+        return [{"name": name, "command": f"{manager} {task}", "lock": lock}]
 
+    systems = []
     build_checks = {
-        "package.json": [
-            (root / "package-lock.json", {"name": "npm", "command": "npm run build", "lock": "package-lock.json"}),
-            (root / "yarn.lock", {"name": "Yarn", "command": "yarn build", "lock": "yarn.lock"}),
-            (root / "pnpm-lock.yaml", {"name": "pnpm", "command": "pnpm build", "lock": "pnpm-lock.yaml"}),
-            (root / "bun.lock", {"name": "Bun", "command": "bun run build", "lock": "bun.lock"}),
-            (root / "bun.lockb", {"name": "Bun", "command": "bun run build", "lock": "bun.lockb"}),
-            (None, {"name": "npm", "command": "npm install", "lock": None}),
-        ],
         "pyproject.toml": [
+            (root / "uv.lock", {"name": "uv", "command": "uv sync", "lock": "uv.lock"}),
             (root / "poetry.lock", {"name": "Poetry", "command": "poetry build", "lock": "poetry.lock"}),
-            (root / "Pipfile", {"name": "Pipenv", "command": "pipenv run build", "lock": "Pipfile.lock"}),
+            (root / "Pipfile.lock", {"name": "Pipenv", "command": "pipenv sync", "lock": "Pipfile.lock"}),
             (None, {"name": "pip", "command": "pip install -e .", "lock": None}),
         ],
         "requirements.txt": [
@@ -287,6 +311,15 @@ def detect_test_framework(root_path: str) -> list[dict]:
             # Deduplicate
             if not any(f["framework"] == info["framework"] for f in found):
                 found.append(info)
+
+    package = _package_data(root)
+    if _has_script(package, "test"):
+        manager, _ = _node_manager(root, package)
+        command = f"{manager} run test"
+        node_tests = [test for test in found if test["framework"] in ("Jest", "Vitest")]
+        found = [dict(test, command=command) if test in node_tests else test for test in found]
+        if not node_tests:
+            found.append({"framework": "JavaScript", "command": command, "config_file": "package.json"})
 
     # Check for test directories as fallback
     test_dirs = ["tests", "test", "__tests__", "spec"]
@@ -419,14 +452,9 @@ def get_project_name(root_path: str) -> str:
             pass
 
     # Check package.json
-    pkg_json = root / "package.json"
-    if pkg_json.exists():
-        try:
-            data = json.loads(pkg_json.read_text(encoding="utf-8-sig"))
-            if "name" in data:
-                return data["name"]
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            pass
+    package_name = _package_data(root).get("name")
+    if isinstance(package_name, str) and package_name.strip():
+        return package_name.strip()
 
     # Check Cargo.toml
     cargo_toml = root / "Cargo.toml"

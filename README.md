@@ -37,13 +37,15 @@ With `-w`, three files appear in your project root, ready for any AI agent.
 
 ## 🎯 What It Detects
 
+JavaScript commands follow the declared package manager or its lockfile. The scanner uses build and test scripts only when they exist in the project manifest.
+
 claudescan analyzes your repo and auto-detects:
 
 | Category | Examples |
 |----------|----------|
 | **Languages** | Python, TypeScript, Rust, Go, JavaScript, +20 more |
 | **Frameworks** | Next.js, React, Django, FastAPI, Vue, Svelte, Express... |
-| **Build Systems** | npm, Yarn, pnpm, pip, Poetry, Cargo, Go Modules, Make, CMake |
+| **Build Systems** | npm, Yarn, pnpm, Bun, uv, pip, Poetry, Cargo, Go Modules, Make, CMake |
 | **Test Frameworks** | Jest, Vitest, Pytest, Cargo Test, Go Test, PHPUnit, RSpec |
 | **Linters** | ESLint, Prettier, Ruff, Mypy, Biome, golangci-lint, Clippy |
 | **Git Info** | Default branch, commit count, recent contributors, remotes |
