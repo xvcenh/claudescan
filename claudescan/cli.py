@@ -6,16 +6,14 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 from rich.text import Text
-from rich.tree import Tree
 
 from .scanner import generate_output, scan_project
 
 console = Console()
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         prog="claudescan",
         description="Scan any repo and auto-generate optimized AI agent config files",
@@ -63,7 +61,7 @@ def main():
     try:
         data = scan_project(str(root))
     except (FileNotFoundError, NotADirectoryError) as e:
-        console.print(f"[red]Error: {e}[/red]")
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
     # Show summary
@@ -83,14 +81,14 @@ def main():
 
         if args.write:
             filepath = root / file_map[fmt]
-            filepath.write_text(content)
+            filepath.write_text(content, encoding="utf-8")
             if not args.quiet:
                 console.print(f"[green]✓[/green] Wrote [bold]{file_map[fmt]}[/bold]")
         else:
             if not args.quiet:
                 console.print(
                     Panel(
-                        content,
+                        Text(content),
                         title=f"[bold]{file_map[fmt]}[/bold]",
                         border_style="green",
                         title_align="left",
@@ -98,7 +96,7 @@ def main():
                 )
                 console.print()
             else:
-                console.print(content)
+                sys.stdout.write(content)
                 if fmt != formats[-1]:
                     print("\n---\n")
 
@@ -117,7 +115,7 @@ def main():
         console.print()
 
 
-def _print_summary(data: dict):
+def _print_summary(data: dict) -> None:
     """Print a formatted summary of the scan results."""
     name = data["project_name"]
     console.print(f"[bold]Project:[/bold] {name}")

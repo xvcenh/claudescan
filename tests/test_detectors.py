@@ -178,3 +178,17 @@ def test_detect_git_info_not_git():
         result = detect_git_info(tmpdir)
         assert result["is_git_repo"] is False
         assert result["commit_count"] == 0
+
+
+def test_generated_packages_are_pruned(tmp_path: Path) -> None:
+    (tmp_path / "src.py").touch()
+    for ignored in ("node_modules", "package.egg-info"):
+        folder = tmp_path / ignored
+        folder.mkdir()
+        (folder / "bundle.js").touch()
+    assert detect_languages(str(tmp_path)) == [{"name": "Python", "percentage": 100.0, "files": 1}]
+
+
+def test_node_project_without_lockfile(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    assert detect_build_system(str(tmp_path))[0]["name"] == "npm"

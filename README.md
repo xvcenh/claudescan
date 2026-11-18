@@ -2,7 +2,6 @@
 
 **Scan any repo → generate perfect AI agent config files in seconds.**
 
-[![PyPI](https://img.shields.io/pypi/v/claudescan?color=blue)](https://pypi.org/project/claudescan/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 
@@ -18,14 +17,14 @@ AI coding agents (Claude Code, Cursor, Codex, OpenCode) are only as good as thei
 
 ```bash
 $ claudescan .
-# → CLAUDE.md, AGENTS.md, .cursorrules generated instantly
+# Preview the three generated configurations in the terminal
 ```
 
 ## 🚀 Quick Start
 
 ```bash
 # Install
-pip install claudescan
+python -m pip install git+https://github.com/xvcenh/claudescan.git
 
 # Scan any project
 claudescan /path/to/your-project
@@ -34,7 +33,7 @@ claudescan /path/to/your-project
 claudescan /path/to/your-project -w
 ```
 
-That's it. Three files appear in your project root, ready for any AI agent.
+With `-w`, three files appear in your project root, ready for any AI agent.
 
 ## 🎯 What It Detects
 

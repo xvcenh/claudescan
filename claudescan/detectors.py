@@ -65,7 +65,7 @@ IGNORE_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
     "target", "build", "dist", ".next", ".nuxt", ".cache", ".turbo",
     "coverage", ".pytest_cache", ".mypy_cache", ".ruff_cache",
-    ".tox", ".eggs", "*.egg-info",
+    ".tox", ".eggs",
 }
 
 # Config file → framework detection
@@ -159,15 +159,12 @@ def detect_languages(root_path: str) -> list[dict]:
     root = Path(root_path)
     counter = Counter()
 
-    for filepath in root.rglob("*"):
-        if filepath.is_file():
-            # Skip ignored directories
-            parts = set(filepath.relative_to(root).parts)
-            if parts & IGNORE_DIRS:
-                continue
-            ext = filepath.suffix.lower()
-            if ext in EXTENSION_MAP:
-                counter[EXTENSION_MAP[ext]] += 1
+    for directory, folders, files in os.walk(root):
+        folders[:] = [d for d in folders if d not in IGNORE_DIRS and not d.endswith(".egg-info")]
+        for filename in files:
+            extension = Path(filename).suffix.lower()
+            if extension in EXTENSION_MAP and (Path(directory) / filename).is_file():
+                counter[EXTENSION_MAP[extension]] += 1
 
     total = sum(counter.values()) or 1
     return [
@@ -193,7 +190,7 @@ def detect_framework(root_path: str) -> list[dict]:
             # Check for specific framework indicators inside config
             if config_file in FRAMEWORK_INDICATORS:
                 try:
-                    content = config_path.read_text()
+                    content = config_path.read_text(encoding="utf-8-sig")
                     data = json.loads(content) if config_file.endswith(".json") else {}
                     deps = {}
                     if isinstance(data, dict):
@@ -211,7 +208,7 @@ def detect_framework(root_path: str) -> list[dict]:
             # For pyproject.toml, try to detect specific Python framework
             if config_file == "pyproject.toml":
                 try:
-                    content = config_path.read_text()
+                    content = config_path.read_text(encoding="utf-8-sig")
                     # Simple string check for framework names
                     for fw_check in ["django", "flask", "fastapi", "litestar"]:
                         if fw_check in content.lower():
@@ -233,7 +230,9 @@ def detect_build_system(root_path: str) -> list[dict]:
             (root / "package-lock.json", {"name": "npm", "command": "npm run build", "lock": "package-lock.json"}),
             (root / "yarn.lock", {"name": "Yarn", "command": "yarn build", "lock": "yarn.lock"}),
             (root / "pnpm-lock.yaml", {"name": "pnpm", "command": "pnpm build", "lock": "pnpm-lock.yaml"}),
+            (root / "bun.lock", {"name": "Bun", "command": "bun run build", "lock": "bun.lock"}),
             (root / "bun.lockb", {"name": "Bun", "command": "bun run build", "lock": "bun.lockb"}),
+            (None, {"name": "npm", "command": "npm install", "lock": None}),
         ],
         "pyproject.toml": [
             (root / "poetry.lock", {"name": "Poetry", "command": "poetry build", "lock": "poetry.lock"}),
@@ -280,7 +279,7 @@ def detect_test_framework(root_path: str) -> list[dict]:
             # For pyproject.toml, check if it has pytest config
             if config_file == "pyproject.toml":
                 try:
-                    content = config_path.read_text()
+                    content = config_path.read_text(encoding="utf-8-sig")
                     if "[tool.pytest" not in content and "[tool.coverage" not in content:
                         continue
                 except UnicodeDecodeError:
@@ -410,7 +409,7 @@ def get_project_name(root_path: str) -> str:
     pyproject = root / "pyproject.toml"
     if pyproject.exists():
         try:
-            content = pyproject.read_text()
+            content = pyproject.read_text(encoding="utf-8-sig")
             for line in content.split("\n"):
                 line = line.strip()
                 if line.startswith("name") and "=" in line:
@@ -423,7 +422,7 @@ def get_project_name(root_path: str) -> str:
     pkg_json = root / "package.json"
     if pkg_json.exists():
         try:
-            data = json.loads(pkg_json.read_text())
+            data = json.loads(pkg_json.read_text(encoding="utf-8-sig"))
             if "name" in data:
                 return data["name"]
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -433,7 +432,7 @@ def get_project_name(root_path: str) -> str:
     cargo_toml = root / "Cargo.toml"
     if cargo_toml.exists():
         try:
-            content = cargo_toml.read_text()
+            content = cargo_toml.read_text(encoding="utf-8-sig")
             for line in content.split("\n"):
                 line = line.strip()
                 if line.startswith("name") and "=" in line:
@@ -446,7 +445,7 @@ def get_project_name(root_path: str) -> str:
     go_mod = root / "go.mod"
     if go_mod.exists():
         try:
-            content = go_mod.read_text()
+            content = go_mod.read_text(encoding="utf-8-sig")
             for line in content.split("\n"):
                 line = line.strip()
                 if line.startswith("module "):
