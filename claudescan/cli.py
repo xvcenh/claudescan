@@ -1,6 +1,7 @@
 """Command-line interface for claudescan."""
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -41,13 +42,16 @@ def main() -> None:
         help="Output raw content only (no formatting)",
     )
 
+    parser.add_argument("--json", action="store_true", help="Print the detected project metadata as JSON")
     args = parser.parse_args()
+    if args.json and (args.write or args.output != "all"):
+        parser.error("--json reports metadata and cannot be combined with --write or a config format")
 
     # Resolve path
     root = Path(args.path).resolve()
 
     # Show scanning header
-    if not args.quiet:
+    if not args.quiet and not args.json:
         console.print()
         console.print(
             Panel.fit(
@@ -63,6 +67,10 @@ def main() -> None:
     except (FileNotFoundError, NotADirectoryError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    if args.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+        return
 
     # Show summary
     if not args.quiet:

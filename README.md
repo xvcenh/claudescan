@@ -29,6 +29,9 @@ python -m pip install git+https://github.com/xvcenh/claudescan.git
 # Scan any project
 claudescan /path/to/your-project
 
+# Inspect the detected languages, build commands and test frameworks from a script
+claudescan /path/to/your-project --json
+
 # Write config files directly
 claudescan /path/to/your-project -w
 ```
